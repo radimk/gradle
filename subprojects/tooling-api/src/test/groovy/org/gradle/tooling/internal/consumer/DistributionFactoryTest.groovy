@@ -30,6 +30,7 @@ class DistributionFactoryTest extends Specification {
     @Rule final TestNameTestDirectoryProvider tmpDir = new TestNameTestDirectoryProvider()
     final ProgressLoggerFactory progressLoggerFactory = Mock()
     final ProgressLogger progressLogger = Mock()
+    final File projectDir = Mock()
     final DistributionFactory factory = new DistributionFactory(tmpDir.file('userHome'))
 
     def setup() {
@@ -41,7 +42,7 @@ class DistributionFactoryTest extends Specification {
         tmpDir.file('gradle/wrapper/gradle-wrapper.properties') << "distributionUrl=${zipFile.toURI()}"
 
         expect:
-        factory.getDefaultDistribution(tmpDir.testDirectory, false).displayName == "Gradle distribution '${zipFile.toURI()}'"
+        factory.getDistribution(tmpDir.testDirectory, false).displayName == "Gradle distribution '${zipFile.toURI()}'"
     }
 
     def usesTheWrapperPropertiesToDetermineTheDefaultDistributionForASubprojectInAMultiProjectBuild() {
@@ -50,35 +51,41 @@ class DistributionFactoryTest extends Specification {
         tmpDir.file('gradle/wrapper/gradle-wrapper.properties') << "distributionUrl=${zipFile.toURI()}"
 
         expect:
-        factory.getDefaultDistribution(tmpDir.testDirectory.createDir("child"), true).displayName == "Gradle distribution '${zipFile.toURI()}'"
+        factory.getDistribution(tmpDir.testDirectory.createDir("child"), true).displayName == "Gradle distribution '${zipFile.toURI()}'"
     }
 
     def usesTheCurrentVersionAsTheDefaultDistributionWhenNoWrapperPropertiesFilePresent() {
         def uri = new DistributionLocator().getDistributionFor(GradleVersion.current())
 
         expect:
-        factory.getDefaultDistribution(tmpDir.testDirectory, false).displayName == "Gradle distribution '${uri}'"
+        factory.getDistribution(tmpDir.testDirectory, false).displayName == "Gradle distribution '${uri}'"
     }
 
     def createsADisplayNameForAnInstallation() {
-        expect:
-        factory.getDistribution(tmpDir.testDirectory).displayName == "Gradle installation '${tmpDir.testDirectory}'"
+        when:
+        factory.setDistributionFile(tmpDir.testDirectory)
+        then:
+        factory.getDistribution(projectDir, false).displayName == "Gradle installation '${tmpDir.testDirectory}'"
     }
 
     def usesContentsOfInstallationLibDirectoryAsImplementationClasspath() {
         def libA = tmpDir.createFile("lib/a.jar")
         def libB = tmpDir.createFile("lib/b.jar")
 
-        expect:
-        def dist = factory.getDistribution(tmpDir.testDirectory)
+        when:
+        factory.setDistributionFile(tmpDir.testDirectory)
+        def dist = factory.getDistribution(projectDir, false)
+
+        then:
         dist.getToolingImplementationClasspath(progressLoggerFactory).asFiles as Set == [libA, libB] as Set
     }
 
     def failsWhenInstallationDirectoryDoesNotExist() {
         TestFile distDir = tmpDir.file('unknown')
-        def dist = factory.getDistribution(distDir)
+        factory.setDistributionFile(distDir)
 
         when:
+        def dist = factory.getDistribution(projectDir, false)
         dist.getToolingImplementationClasspath(progressLoggerFactory)
 
         then:
@@ -88,9 +95,10 @@ class DistributionFactoryTest extends Specification {
 
     def failsWhenInstallationDirectoryIsAFile() {
         TestFile distDir = tmpDir.createFile('dist')
-        def dist = factory.getDistribution(distDir)
+        factory.setDistributionFile(distDir)
 
         when:
+        def dist = factory.getDistribution(projectDir, false)
         dist.getToolingImplementationClasspath(progressLoggerFactory)
 
         then:
@@ -100,9 +108,10 @@ class DistributionFactoryTest extends Specification {
 
     def failsWhenInstallationDirectoryDoesNotContainALibDirectory() {
         TestFile distDir = tmpDir.createDir('dist')
-        def dist = factory.getDistribution(distDir)
+        factory.setDistributionFile(distDir)
 
         when:
+        def dist = factory.getDistribution(projectDir, false)
         dist.getToolingImplementationClasspath(progressLoggerFactory)
 
         then:
@@ -113,8 +122,12 @@ class DistributionFactoryTest extends Specification {
     def createsADisplayNameForADistribution() {
         def zipFile = createZip { }
 
-        expect:
-        factory.getDistribution(zipFile.toURI()).displayName == "Gradle distribution '${zipFile.toURI()}'"
+        when:
+        factory.setDistributionUri(zipFile.toURI())
+        def dist = factory.getDistribution(projectDir, false)
+
+        then:
+        dist.displayName == "Gradle distribution '${zipFile.toURI()}'"
     }
 
     def usesContentsOfDistributionZipLibDirectoryAsImplementationClasspath() {
@@ -124,10 +137,62 @@ class DistributionFactoryTest extends Specification {
                 file("b.jar")
             }
         }
-        def dist = factory.getDistribution(zipFile.toURI())
+        factory.setDistributionUri(zipFile.toURI())
+        def dist = factory.getDistribution(projectDir, false)
 
         expect:
         dist.getToolingImplementationClasspath(progressLoggerFactory).asFiles.name as Set == ['a.jar', 'b.jar'] as Set
+    }
+
+    def usesWrapperDistributionInstalledIntoSpecifiedUserHomeDirAsImplementationClasspath() {
+        File customUserHome = tmpDir.file('customUserHome')
+        def zipFile = createZip {
+            lib {
+                file("a.jar")
+                file("b.jar")
+            }
+        }
+        tmpDir.file('gradle/wrapper/gradle-wrapper.properties') << "distributionUrl=${zipFile.toURI()}"
+        factory.setGradleUserHomeDir(customUserHome)
+        def dist = factory.getDistribution(tmpDir.testDirectory, false)
+
+        expect:
+        dist.getToolingImplementationClasspath(progressLoggerFactory).asFiles.name as Set == ['a.jar', 'b.jar'] as Set
+        (dist.getToolingImplementationClasspath(progressLoggerFactory).asFiles.path as Set).every { it.contains('customUserHome')}
+    }
+
+    def usesZipDistributionInstalledIntoSpecifiedUserHomeDirAsImplementationClasspath() {
+        File customUserHome = tmpDir.file('customUserHome')
+        def zipFile = createZip {
+            lib {
+                file("a.jar")
+                file("b.jar")
+            }
+        }
+        factory.setDistributionUri(zipFile.toURI())
+        factory.setGradleUserHomeDir(customUserHome)
+        def dist = factory.getDistribution(tmpDir.testDirectory, false)
+
+        expect:
+        dist.getToolingImplementationClasspath(progressLoggerFactory).asFiles.name as Set == ['a.jar', 'b.jar'] as Set
+        (dist.getToolingImplementationClasspath(progressLoggerFactory).asFiles.path as Set).every { it.contains('customUserHome')}
+    }
+
+    def usesZipDistributionInstalledIntoSpecifiedUserHomeDirAsImplementationClasspathDifferentOrder() {
+        File customUserHome = tmpDir.file('customUserHome')
+        def zipFile = createZip {
+            lib {
+                file("a.jar")
+                file("b.jar")
+            }
+        }
+        factory.setGradleUserHomeDir(customUserHome)
+        factory.setDistributionUri(zipFile.toURI())
+        def dist = factory.getDistribution(tmpDir.testDirectory, false)
+
+        expect:
+        dist.getToolingImplementationClasspath(progressLoggerFactory).asFiles.name as Set == ['a.jar', 'b.jar'] as Set
+        (dist.getToolingImplementationClasspath(progressLoggerFactory).asFiles.path as Set).every { it.contains('customUserHome')}
     }
 
     def reportsZipDownload() {
@@ -136,7 +201,8 @@ class DistributionFactoryTest extends Specification {
                 file("a.jar")
             }
         }
-        def dist = factory.getDistribution(zipFile.toURI())
+        factory.setDistributionUri(zipFile.toURI())
+        def dist = factory.getDistribution(projectDir, false)
         ProgressLogger loggerOne = Mock()
         ProgressLogger loggerTwo = Mock()
 
@@ -160,9 +226,10 @@ class DistributionFactoryTest extends Specification {
     @Requires(TestPrecondition.ONLINE)
     def failsWhenDistributionZipDoesNotExist() {
         URI zipFile = new URI("http://google.com/does-not-exist/gradle-1.0.zip")
-        def dist = factory.getDistribution(zipFile)
+        factory.setDistributionUri(zipFile)
 
         when:
+        def dist = factory.getDistribution(projectDir, false)
         dist.getToolingImplementationClasspath(progressLoggerFactory)
 
         then:
@@ -172,9 +239,10 @@ class DistributionFactoryTest extends Specification {
 
     def failsWhenDistributionZipDoesNotContainALibDirectory() {
         TestFile zipFile = createZip { file("other") }
-        def dist = factory.getDistribution(zipFile.toURI())
+        factory.setDistributionUri(zipFile.toURI())
 
         when:
+        def dist = factory.getDistribution(projectDir, false)
         dist.getToolingImplementationClasspath(progressLoggerFactory)
 
         then:

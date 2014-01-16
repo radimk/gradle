@@ -31,6 +31,7 @@ import org.gradle.tooling.GradleConnector
 import org.gradle.tooling.ProjectConnection
 import org.gradle.tooling.internal.consumer.ConnectorServices
 import org.gradle.tooling.internal.consumer.Distribution
+import org.gradle.tooling.internal.consumer.DistributionFactory
 import org.gradle.tooling.model.GradleProject
 import org.gradle.tooling.model.idea.IdeaProject
 import org.junit.Rule
@@ -191,8 +192,7 @@ project.description = text
         def allProgress = new CopyOnWriteArrayList<String>()
 
         concurrent.start {
-            def connector = toolingApi.connector()
-            distributionOperation(connector, { it.description = "download for 1"; Thread.sleep(500) } )
+            def connector = distributionOperation(toolingApi, { it.description = "download for 1"; Thread.sleep(500) } )
             connector.forProjectDirectory(file("build1"))
 
             toolingApi.withConnection(connector) { connection ->
@@ -206,8 +206,7 @@ project.description = text
         }
 
         concurrent.start {
-            def connector = toolingApi.connector()
-            distributionOperation(connector, { it.description = "download for 2"; Thread.sleep(500) } )
+            def connector = distributionOperation(toolingApi, { it.description = "download for 2"; Thread.sleep(500) } )
             connector.forProjectDirectory(file("build2"))
 
             def connection = connector.connect()
@@ -241,8 +240,7 @@ project.description = text
         when:
         threads.times { idx ->
             concurrent.start {
-                def connector = toolingApi.connector()
-                distributionProgressMessage(connector, "download for " + idx)
+                def connector  = distributionProgressMessage(toolingApi, "download for " + idx)
 
                 def connection = connector.connect()
 
@@ -263,15 +261,23 @@ project.description = text
         concurrent.finished()
     }
 
-    void distributionProgressMessage(GradleConnector connector, String message) {
-        connector.distribution = new ConfigurableDistribution(delegate: connector.distribution, operation: { it.description = message} )
+    GradleConnector distributionProgressMessage(ToolingApi toolingApi, String message) {
+        def connector = toolingApi.connector()
+        def delegateDistribution = connector.distributionFactory.getDistribution(toolingApi.testWorkDirProvider.testDirectory, false)
+        connector.distributionFactory.distribution = new ConfigurableDistribution(delegate: delegateDistribution, operation: { it.description = message} )
+        // connector.distribution = new ConfigurableDistribution(delegate: connector.distribution, operation: { it.description = message} )
+        connector
     }
 
-    void distributionOperation(GradleConnector connector, Closure operation) {
-        connector.distribution = new ConfigurableDistribution(delegate: connector.distribution, operation: operation )
+    GradleConnector distributionOperation(ToolingApi toolingApi, Closure operation) {
+        def connector = toolingApi.connector()
+        def delegateDistribution = connector.distributionFactory.getDistribution(toolingApi.testWorkDirProvider.testDirectory, false)
+        connector.distributionFactory.distribution = new ConfigurableDistribution(delegate: delegateDistribution, operation: operation )
+        // connector.distribution = new ConfigurableDistribution(delegate: connector.distribution, operation: operation )
+        connector
     }
 
-    static class ConfigurableDistribution implements Distribution {
+    static class ConfigurableDistribution extends DistributionFactory.DistributionWithUserHomeDir {
         Distribution delegate
         Closure operation
 

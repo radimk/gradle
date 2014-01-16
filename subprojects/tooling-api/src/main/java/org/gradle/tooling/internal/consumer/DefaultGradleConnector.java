@@ -30,7 +30,6 @@ public class DefaultGradleConnector extends GradleConnector {
     private static final Logger LOGGER = LoggerFactory.getLogger(GradleConnector.class);
     private final ConnectionFactory connectionFactory;
     private final DistributionFactory distributionFactory;
-    private Distribution distribution;
 
     private final DefaultConnectionParameters connectionParameters = new DefaultConnectionParameters();
 
@@ -40,27 +39,27 @@ public class DefaultGradleConnector extends GradleConnector {
     }
 
     public GradleConnector useInstallation(File gradleHome) {
-        distribution = distributionFactory.getDistribution(gradleHome);
+        distributionFactory.setDistributionFile(gradleHome);
         return this;
     }
 
     public GradleConnector useGradleVersion(String gradleVersion) {
-        distribution = distributionFactory.getDistribution(gradleVersion);
+        distributionFactory.setDistributionVersion(gradleVersion);
         return this;
     }
 
     public GradleConnector useDistribution(URI gradleDistribution) {
-        distribution = distributionFactory.getDistribution(gradleDistribution);
+        distributionFactory.setDistributionUri(gradleDistribution);
         return this;
     }
 
     public GradleConnector useClasspathDistribution() {
-        distribution = distributionFactory.getClasspathDistribution();
+        distributionFactory.setClasspathDistribution();
         return this;
     }
 
     public GradleConnector useDefaultDistribution() {
-        distribution = null;
+        distributionFactory.setDefaultDistribution();
         return this;
     }
 
@@ -70,6 +69,7 @@ public class DefaultGradleConnector extends GradleConnector {
     }
 
     public GradleConnector useGradleUserHomeDir(File gradleUserHomeDir) {
+        distributionFactory.setGradleUserHomeDir(gradleUserHomeDir);
         connectionParameters.setGradleUserHomeDir(gradleUserHomeDir);
         return this;
     }
@@ -107,9 +107,8 @@ public class DefaultGradleConnector extends GradleConnector {
         if (connectionParameters.getProjectDir() == null) {
             throw new IllegalStateException("A project directory must be specified before creating a connection.");
         }
-        if (distribution == null) {
-            distribution = distributionFactory.getDefaultDistribution(connectionParameters.getProjectDir(), connectionParameters.isSearchUpwards() != null ? connectionParameters.isSearchUpwards() : true);
-        }
+        Distribution distribution = distributionFactory.getDistribution(
+                connectionParameters.getProjectDir(), connectionParameters.isSearchUpwards() != null ? connectionParameters.isSearchUpwards() : true);
         return connectionFactory.create(distribution, connectionParameters);
     }
 

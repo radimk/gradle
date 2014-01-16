@@ -34,66 +34,101 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 
 public class DistributionFactory {
-    private final File userHomeDir;
+    private File userHomeDir;
+    private DistributionWithUserHomeDir distribution;
 
     public DistributionFactory(File userHomeDir) {
         this.userHomeDir = userHomeDir;
     }
 
     /**
-     * Returns the default distribution to use for the specified project.
+     * Returns the distribution to use for the specified project.
      */
-    public Distribution getDefaultDistribution(File projectDir, boolean searchUpwards) {
+    public Distribution getDistribution(File projectDir, boolean searchUpwards) {
+        if (distribution == null) {
+            distribution = createDistribution(projectDir, searchUpwards);
+        }
+        return distribution;
+    }
+
+    private DistributionWithUserHomeDir createDistribution(File projectDir, boolean searchUpwards) {
         BuildLayout layout = new BuildLayoutFactory().getLayoutFor(projectDir, searchUpwards);
         WrapperExecutor wrapper = WrapperExecutor.forProjectDirectory(layout.getRootDirectory(), System.out);
         if (wrapper.getDistribution() != null) {
-            return new ZippedDistribution(wrapper.getConfiguration());
+            return new ZippedDistribution(wrapper.getConfiguration(), userHomeDir);
         }
-        return getDownloadedDistribution(GradleVersion.current().getVersion());
+        return createDownloadedDistribution(GradleVersion.current().getVersion());
     }
 
     /**
      * Returns the distribution installed in the specified directory.
      */
-    public Distribution getDistribution(File gradleHomeDir) {
-        return new InstalledDistribution(gradleHomeDir, String.format("Gradle installation '%s'", gradleHomeDir),
+    public void setDistributionFile(File gradleHomeDir) {
+        distribution = new InstalledDistribution(gradleHomeDir, String.format("Gradle installation '%s'", gradleHomeDir),
                 String.format("Gradle installation directory '%s'", gradleHomeDir));
     }
 
     /**
      * Returns the distribution for the specified gradle version.
      */
-    public Distribution getDistribution(String gradleVersion) {
-        return getDownloadedDistribution(gradleVersion);
+    public void setDistributionVersion(String gradleVersion) {
+        distribution = createDownloadedDistribution(gradleVersion);
     }
 
     /**
      * Returns the distribution at the given URI.
      */
-    public Distribution getDistribution(URI gradleDistribution) {
+    public void setDistributionUri(URI gradleDistribution) {
+        distribution = createDistributionFromUri(gradleDistribution);
+    }
+
+    private DistributionWithUserHomeDir createDistributionFromUri(URI gradleDistribution) {
         WrapperConfiguration configuration = new WrapperConfiguration();
         configuration.setDistribution(gradleDistribution);
-        return new ZippedDistribution(configuration);
+        return new ZippedDistribution(configuration, userHomeDir);
     }
 
     /**
      * Uses the classpath to locate the distribution.
      */
-    public Distribution getClasspathDistribution() {
-        return new ClasspathDistribution();
+    public void setClasspathDistribution() {
+        distribution = new ClasspathDistribution();
     }
 
-    private Distribution getDownloadedDistribution(String gradleVersion) {
+    public void setDefaultDistribution() {
+        distribution = null;
+    }
+
+    public void setGradleUserHomeDir(File userHomeDir) {
+        this.userHomeDir = userHomeDir;
+        if (distribution != null) {
+            distribution = distribution.withUserHomeDir(userHomeDir);
+        }
+    }
+
+    private DistributionWithUserHomeDir createDownloadedDistribution(String gradleVersion) {
         URI distUri = new DistributionLocator().getDistributionFor(GradleVersion.version(gradleVersion));
-        return getDistribution(distUri);
+        return createDistributionFromUri(distUri);
     }
 
-    private class ZippedDistribution implements Distribution {
+    public abstract static class DistributionWithUserHomeDir implements Distribution {
+        public DistributionWithUserHomeDir withUserHomeDir(File userHomeDir) {
+            return this;
+        }
+    }
+    private static class ZippedDistribution extends DistributionWithUserHomeDir {
         private InstalledDistribution installedDistribution;
         private final WrapperConfiguration wrapperConfiguration;
+        private final File userHomeDir;
 
-        private ZippedDistribution(WrapperConfiguration wrapperConfiguration) {
+        private ZippedDistribution(WrapperConfiguration wrapperConfiguration, File userHomeDir) {
             this.wrapperConfiguration = wrapperConfiguration;
+            this.userHomeDir = userHomeDir;
+        }
+
+        @Override
+        public DistributionWithUserHomeDir withUserHomeDir(File userHomeDir) {
+            return new ZippedDistribution(wrapperConfiguration, userHomeDir);
         }
 
         public String getDisplayName() {
@@ -136,7 +171,7 @@ public class DistributionFactory {
         }
     }
 
-    private static class InstalledDistribution implements Distribution {
+    private static class InstalledDistribution extends DistributionWithUserHomeDir {
         private final File gradleHomeDir;
         private final String displayName;
         private final String locationDisplayName;
@@ -183,7 +218,7 @@ public class DistributionFactory {
         }
     }
 
-    private static class ClasspathDistribution implements Distribution {
+    private static class ClasspathDistribution extends DistributionWithUserHomeDir {
         public String getDisplayName() {
             return "Gradle classpath distribution";
         }
