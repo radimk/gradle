@@ -16,6 +16,8 @@
 
 package org.gradle.tooling;
 
+import org.gradle.api.Incubating;
+
 import java.io.File;
 import java.io.InputStream;
 import java.io.OutputStream;
@@ -145,4 +147,11 @@ public interface LongRunningOperation {
      */
     LongRunningOperation addProgressListener(ProgressListener listener);
 
+    /**
+     * Adds cancellation token that will enable operation cancelling.
+     *
+     * @since 2.0
+     */
+    @Incubating
+    LongRunningOperation withCancellationToken(CancellationToken cancellationToken);
 }
