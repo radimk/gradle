@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 the original author or authors.
+ * Copyright 2014 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,23 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.gradle.launcher.exec;
 
-import org.gradle.initialization.BuildAction;
+package org.gradle.tooling.internal.protocol;
 
-public interface BuildActionExecuter<P> {
+import java.util.concurrent.Callable;
+
+/**
+ * Cancellation token passed from consumer to provider to propagate cancellation events.
+ * @since 2.0-rc-1
+ */
+public interface InternalCancellationToken {
+    boolean canBeCancelled();
+    boolean isCancellationRequested();
+
     /**
-     * Executes the given action, and returns the result.
      *
-     * @param action The action
-     * @param <T> The result type
-     * @return The result.
+     * @param cancellationHandler
+     * @return current state of cancellation request before callback was added.
      */
-    <T> T execute(BuildAction<T> action, BuildCancellationToken cancellationToken, P actionParameters);
+    boolean addCallback(Callable<Boolean> cancellationHandler);
 }

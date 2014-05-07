@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 the original author or authors.
+ * Copyright 2014 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,21 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.gradle.launcher.exec;
 
-import org.gradle.initialization.BuildAction;
+package org.gradle.tooling.exceptions;
 
-public interface BuildActionExecuter<P> {
-    /**
-     * Executes the given action, and returns the result.
-     *
-     * @param action The action
-     * @param <T> The result type
-     * @return The result.
-     */
-    <T> T execute(BuildAction<T> action, BuildCancellationToken cancellationToken, P actionParameters);
+import org.gradle.tooling.GradleConnectionException;
+
+/**
+ * Thrown when the {@link org.gradle.tooling.LongRunningOperation} execution
+ * was cancelled.
+ */
+public class BuildCancelledException extends GradleConnectionException {
+    public BuildCancelledException(String message) {
+        super(message);
+    }
+
+    public BuildCancelledException(String message, Throwable throwable) {
+        super(message, throwable);
+    }
 }

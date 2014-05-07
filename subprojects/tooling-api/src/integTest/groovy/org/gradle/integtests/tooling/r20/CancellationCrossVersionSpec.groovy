@@ -20,11 +20,11 @@ import org.gradle.integtests.tooling.fixture.TargetGradleVersion
 import org.gradle.integtests.tooling.fixture.ToolingApiSpecification
 import org.gradle.integtests.tooling.fixture.ToolingApiVersion
 import org.gradle.test.fixtures.ConcurrentTestUtil
-import org.gradle.tooling.BuildLauncher
 import org.gradle.tooling.CancellationTokenSource
 import org.gradle.tooling.GradleConnectionException
 import org.gradle.tooling.ProjectConnection
 import org.gradle.tooling.ResultHandler
+import org.gradle.tooling.exceptions.BuildCancelledException
 
 import java.util.concurrent.CountDownLatch
 import java.util.concurrent.TimeUnit
@@ -34,12 +34,14 @@ import java.util.concurrent.TimeUnit
 @TargetGradleVersion(">=1.0-milestone-8")
 class CancellationCrossVersionSpec extends ToolingApiSpecification {
     def setup() {
+        // in-process call does not support cancelling (yet)
+        toolingApi.isEmbedded = false
         settingsFile << '''
 rootProject.name = 'cancelling'
 '''
     }
 
-    @TargetGradleVersion(">=1.12")
+    @TargetGradleVersion(">=2.1")
     def "can cancel getModel"() {
         def marker = file("marker.txt")
 
@@ -68,8 +70,46 @@ task hang << {
             marker.text = 'go!'
             resultHandler.finished()
         }
+        println resultHandler.failure
+        resultHandler.failure.printStackTrace()
+
         then:
-        output.toString().contains("waiting")
+        // output.toString().contains("waiting")
+        !output.toString().contains("finished")
+        resultHandler.failure instanceof GradleConnectionException
+    }
+
+
+    @TargetGradleVersion(">=2.1")
+    def "early cancel stops the build before beginning"() {
+        def marker = file("marker.txt")
+
+        buildFile << """
+task hang << {
+    println "waiting"
+    def marker = file('${marker.toURI()}')
+    long timeout = System.currentTimeMillis() + 10000
+    while (!marker.file && System.currentTimeMillis() < timeout) { Thread.sleep(200) }
+    if (!marker.file) { throw new RuntimeException("Timeout waiting for marker file") }
+    println "finished"
+}
+"""
+        def cancel = new CancellationTokenSource()
+        def resultHandler = new TestResultHandler()
+        def output = new TestOutputStream()
+
+        when:
+        cancel.cancel()
+        withConnection { ProjectConnection connection ->
+            def build = connection.newBuild()
+            build.forTasks('hang')
+            build.withCancellationToken(cancel.token())
+            build.run(resultHandler)
+            resultHandler.finished()
+        }
+        then:
+        resultHandler.failure instanceof BuildCancelledException
+        !output.toString().contains("waiting")
         !output.toString().contains("finished")
     }
 
@@ -91,6 +131,7 @@ task hang << {
             latch.countDown()
         }
 
+        // TODO matcher on expected exception
         def finished() {
             latch.await(10, TimeUnit.SECONDS)
             if (failure == null) {

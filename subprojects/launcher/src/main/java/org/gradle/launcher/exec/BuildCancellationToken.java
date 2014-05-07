@@ -1,5 +1,5 @@
 /*
- * Copyright 2011 the original author or authors.
+ * Copyright 2014 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,17 +13,22 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 package org.gradle.launcher.exec;
 
-import org.gradle.initialization.BuildAction;
+import java.util.concurrent.Callable;
 
-public interface BuildActionExecuter<P> {
+/**
+ * Propagates notification that the build should be cancelled.
+ */
+public interface BuildCancellationToken {
+    boolean canBeCancelled();
+    boolean isCancellationRequested();
+
     /**
-     * Executes the given action, and returns the result.
      *
-     * @param action The action
-     * @param <T> The result type
-     * @return The result.
+     * @param cancellationHandler
+     * @return current state of cancellation request before callback was added.
      */
-    <T> T execute(BuildAction<T> action, BuildCancellationToken cancellationToken, P actionParameters);
+    boolean addCallback(Callable<Boolean> cancellationHandler);
 }

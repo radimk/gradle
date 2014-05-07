@@ -41,9 +41,9 @@ class GradleBuildAdapterProducerTest extends Specification {
         GradleBuild gradleBuild = Mock(GradleBuild)
         ConsumerOperationParameters operationParameters = Mock(ConsumerOperationParameters)
         when:
-        def model = modelProducer.produceModel(GradleBuild.class, operationParameters)
+        def model = modelProducer.produceModel(GradleBuild.class, null, operationParameters)
         then:
-        1 * delegate.produceModel(GradleBuild, operationParameters) >> gradleBuild
+        1 * delegate.produceModel(GradleBuild, null, operationParameters) >> gradleBuild
         model == gradleBuild
     }
 
@@ -55,9 +55,9 @@ class GradleBuildAdapterProducerTest extends Specification {
         adapter.adapt(GradleProject, gradleProject) >> gradleProject
         adapter.adapt(GradleBuild, _) >> Mock(GradleBuild)
         when:
-        def model = modelProducer.produceModel(GradleBuild, operationParameters)
+        def model = modelProducer.produceModel(GradleBuild, null, operationParameters)
         then:
-        1 * delegate.produceModel(GradleProject, operationParameters) >> gradleProject
+        1 * delegate.produceModel(GradleProject, null, operationParameters) >> gradleProject
         model instanceof GradleBuild
     }
 
@@ -66,9 +66,9 @@ class GradleBuildAdapterProducerTest extends Specification {
         ConsumerOperationParameters operationParameters = Mock(ConsumerOperationParameters)
         SomeModel someModel = new SomeModel()
         when:
-        def returnValue = modelProducer.produceModel(SomeModel, operationParameters)
+        def returnValue = modelProducer.produceModel(SomeModel, null, operationParameters)
         then:
-        1 * delegate.produceModel(SomeModel, operationParameters) >> someModel
+        1 * delegate.produceModel(SomeModel, null, operationParameters) >> someModel
         returnValue == someModel
         0 * versionDetails.maySupportModel(_)
         0 * adapter.adapt(_, _)

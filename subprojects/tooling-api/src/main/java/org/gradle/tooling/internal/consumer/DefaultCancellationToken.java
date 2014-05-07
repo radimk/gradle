@@ -17,16 +17,22 @@
 package org.gradle.tooling.internal.consumer;
 
 import org.gradle.tooling.CancellationToken;
+import org.gradle.tooling.internal.protocol.InternalCancellationToken;
 
-public class DefaultCancellationToken implements CancellationToken {
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.Callable;
+
+public class DefaultCancellationToken implements CancellationToken, InternalCancellationToken {
     private boolean cancelled;
+    private final List<Callable<Boolean>> handlers = new ArrayList<Callable<Boolean>>();
 
     public synchronized boolean isCancellationRequested() {
         return cancelled;
     }
 
     public boolean canBeCancelled() {
-        throw new UnsupportedOperationException();
+        return true;
     }
 
     public synchronized void doCancel() {
@@ -34,5 +40,18 @@ public class DefaultCancellationToken implements CancellationToken {
             return;
         }
         cancelled = true;
+        for (Callable<Boolean> handler : handlers) {
+            try {
+                handler.call();
+            } catch (Exception e) {
+                // TODO what is the best way? should we notify the rest?
+                throw new IllegalStateException(e);
+            }
+        }
+    }
+
+    public synchronized boolean addCallback(Callable<Boolean> cancellationHandler) {
+        handlers.add(cancellationHandler);
+        return cancelled;
     }
 }

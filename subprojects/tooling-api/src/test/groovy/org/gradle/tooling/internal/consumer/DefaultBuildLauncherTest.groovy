@@ -52,8 +52,8 @@ class DefaultBuildLauncherTest extends ConcurrentSpec {
             adaptedHandler = args[1]
             adaptedHandler.onComplete(null)
         }
-        1 * connection.run(Void, _) >> {args ->
-            ConsumerOperationParameters params = args[1]
+        1 * connection.run(Void, _, _) >> {args ->
+            ConsumerOperationParameters params = args[2]
             assert params.tasks == []
             assert params.standardOutput == null
             assert params.standardError == null
@@ -90,8 +90,8 @@ class DefaultBuildLauncherTest extends ConcurrentSpec {
             adaptedHandler = args[1]
             adaptedHandler.onComplete(null)
         }
-        1 * connection.run(Void, _) >> {args ->
-            ConsumerOperationParameters params = args[1]
+        1 * connection.run(Void, _, _) >> {args ->
+            ConsumerOperationParameters params = args[2]
             assert params.tasks == [':task1', ':task2']
             assert params.standardOutput == stdout
             assert params.standardError == stderr
@@ -124,8 +124,8 @@ class DefaultBuildLauncherTest extends ConcurrentSpec {
             adaptedHandler = args[1]
             adaptedHandler.onComplete(null)
         }
-        1 * connection.run(Void, _) >> {args ->
-            ConsumerOperationParameters params = args[1]
+        1 * connection.run(Void, _, _) >> {args ->
+            ConsumerOperationParameters params = args[2]
             assert params.tasks == [':a:myTask', ':b:myTask']
             assert params.standardOutput == stdout
             assert params.standardError == stderr
@@ -160,8 +160,8 @@ class DefaultBuildLauncherTest extends ConcurrentSpec {
             adaptedHandler = args[1]
             adaptedHandler.onComplete(null)
         }
-        1 * connection.run(Void, _) >> {args ->
-            ConsumerOperationParameters params = args[1]
+        1 * connection.run(Void, _, _) >> {args ->
+            ConsumerOperationParameters params = args[2]
             assert params.launchables == [ts]
             assert params.standardOutput == stdout
             assert params.standardError == stderr
@@ -200,8 +200,8 @@ class DefaultBuildLauncherTest extends ConcurrentSpec {
             adaptedHandler = args[1]
             adaptedHandler.onComplete(null)
         }
-        1 * connection.run(Void, _) >> {args ->
-            ConsumerOperationParameters params = args[1]
+        1 * connection.run(Void, _, _) >> {args ->
+            ConsumerOperationParameters params = args[2]
             assert params.tasks == [':firstTask', ':secondTask', ':thirdTask']
             assert params.standardOutput == stdout
             assert params.standardError == stderr

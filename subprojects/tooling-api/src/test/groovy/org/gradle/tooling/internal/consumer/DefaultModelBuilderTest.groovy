@@ -47,8 +47,8 @@ class DefaultModelBuilderTest extends ConcurrentSpec {
             action.run(connection)
             adaptedHandler = args[1]
         }
-        1 * connection.run(GradleProject, _) >> {args ->
-            ConsumerOperationParameters params = args[1]
+        1 * connection.run(GradleProject, _, _) >> {args ->
+            ConsumerOperationParameters params = args[2]
             assert params.standardOutput == null
             assert params.standardError == null
             assert params.standardInput == null
@@ -82,8 +82,8 @@ class DefaultModelBuilderTest extends ConcurrentSpec {
             action.run(connection)
             adaptedHandler = args[1]
         }
-        1 * connection.run(GradleProject, _) >> {args ->
-            ConsumerOperationParameters params = args[1]
+        1 * connection.run(GradleProject, _, _) >> {args ->
+            ConsumerOperationParameters params = args[2]
             assert params.standardOutput == null
             assert params.standardError == null
             assert params.progressListener != null

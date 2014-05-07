@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 the original author or authors.
+ * Copyright 2014 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,14 +24,20 @@ import org.gradle.tooling.internal.consumer.parameters.ConsumerOperationParamete
 import org.gradle.tooling.internal.consumer.versioning.ModelMapping;
 import org.gradle.tooling.internal.protocol.*;
 
-public class ActionAwareConsumerConnection extends ModelBuilderBackedConsumerConnection {
-    private final InternalBuildActionExecutor executor;
+public class CancellableActionAwareConsumerConnection extends ModelBuilderBackedConsumerConnection {
+    private final InternalCancellableBuildActionExecutor executor;
     private final ProtocolToModelAdapter adapter;
 
-    public ActionAwareConsumerConnection(ConnectionVersion4 delegate, ModelMapping modelMapping, ProtocolToModelAdapter adapter) {
+    public CancellableActionAwareConsumerConnection(ConnectionVersion4 delegate, ModelMapping modelMapping, ProtocolToModelAdapter adapter) {
         super(delegate, modelMapping, adapter);
         this.adapter = adapter;
-        executor = (InternalBuildActionExecutor) delegate;
+        executor = (InternalCancellableBuildActionExecutor) delegate;
+    }
+
+    @Override
+    protected ModelProducer realModelProducer(ConnectionVersion4 delegate, ModelMapping modelMapping, ProtocolToModelAdapter adapter) {
+        CancellableModelBuilder builder = (CancellableModelBuilder) delegate;
+        return new CancellableModelBuilderBackedModelProducer(adapter, getVersionDetails(), modelMapping, builder);
     }
 
     @Override
@@ -39,13 +45,15 @@ public class ActionAwareConsumerConnection extends ModelBuilderBackedConsumerCon
             throws UnsupportedOperationException, IllegalStateException {
         BuildResult<T> result;
         try {
-            result = executor.run(new BuildActionAdapter<T>(action, adapter), operationParameters);
+            // TODO use adapt instead of casting?
+            result = executor.run(new BuildActionAdapter<T>(action, adapter), (InternalCancellationToken) cancellationToken, operationParameters);
         } catch (InternalBuildActionFailureException e) {
             throw new BuildActionFailureException("The supplied build action failed with an exception.", e.getCause());
         }
         return result.getModel();
     }
 
+    // TODO reuse with ActionAwareConsumerConnection
     private static class BuildActionAdapter<T> implements InternalBuildAction<T> {
         private final BuildAction<T> action;
         private final ProtocolToModelAdapter adapter;

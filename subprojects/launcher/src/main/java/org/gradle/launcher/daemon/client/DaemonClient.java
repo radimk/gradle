@@ -29,6 +29,7 @@ import org.gradle.launcher.daemon.logging.DaemonMessages;
 import org.gradle.launcher.daemon.protocol.*;
 import org.gradle.launcher.exec.BuildActionExecuter;
 import org.gradle.launcher.exec.BuildActionParameters;
+import org.gradle.launcher.exec.BuildCancellationToken;
 import org.gradle.logging.internal.OutputEvent;
 import org.gradle.logging.internal.OutputEventListener;
 import org.gradle.messaging.remote.internal.Connection;
@@ -36,6 +37,7 @@ import org.gradle.messaging.remote.internal.Connection;
 import java.io.InputStream;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.concurrent.Callable;
 
 /**
  * The client piece of the build daemon.
@@ -142,11 +144,28 @@ public class DaemonClient implements BuildActionExecuter<BuildActionParameters> 
      * @param action The action
      * @throws org.gradle.launcher.exec.ReportedException On failure, when the failure has already been logged/reported.
      */
-    public <T> T execute(BuildAction<T> action, BuildActionParameters parameters) {
+    public <T> T execute(BuildAction<T> action, BuildCancellationToken cancellationToken, BuildActionParameters parameters) {
         Build build = new Build(idGenerator.generateId(), action, parameters);
         int saneNumberOfAttempts = 100; //is it sane enough?
         for (int i = 1; i < saneNumberOfAttempts; i++) {
-            DaemonClientConnection connection = connector.connect(compatibilitySpec);
+            final DaemonClientConnection connection = connector.connect(compatibilitySpec);
+            if (cancellationToken.canBeCancelled()) {
+                Callable<Boolean> cancelHook = new Callable<Boolean>() {
+                    public Boolean call() throws Exception {
+                        connection.stop();
+                        return true;
+                    }
+                };
+                boolean cancelled = cancellationToken.addCallback(cancelHook);
+                if (cancelled) {
+                    try {
+                        cancelHook.call();
+                    } catch (Exception e) {
+                        throw new DaemonConnectionException("Attempt to cancel the build failed", e);
+                    }
+                    throw new DaemonClientInterruptedException("Build interrupted");
+                }
+            }
             try {
                 return (T) executeBuild(build, connection);
             } catch (DaemonInitialConnectException e) {

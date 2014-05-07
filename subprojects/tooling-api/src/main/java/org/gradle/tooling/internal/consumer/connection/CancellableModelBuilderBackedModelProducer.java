@@ -1,5 +1,5 @@
 /*
- * Copyright 2013 the original author or authors.
+ * Copyright 2014 the original author or authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -24,17 +24,14 @@ import org.gradle.tooling.internal.consumer.converters.TaskPropertyHandlerFactor
 import org.gradle.tooling.internal.consumer.parameters.ConsumerOperationParameters;
 import org.gradle.tooling.internal.consumer.versioning.ModelMapping;
 import org.gradle.tooling.internal.consumer.versioning.VersionDetails;
-import org.gradle.tooling.internal.protocol.BuildResult;
-import org.gradle.tooling.internal.protocol.InternalUnsupportedModelException;
-import org.gradle.tooling.internal.protocol.ModelBuilder;
-import org.gradle.tooling.internal.protocol.ModelIdentifier;
+import org.gradle.tooling.internal.protocol.*;
 import org.gradle.tooling.model.internal.Exceptions;
 
-public class ModelBuilderBackedModelProducer extends AbstractModelProducer {
-    private final ModelBuilder builder;
+public class CancellableModelBuilderBackedModelProducer extends AbstractModelProducer {
+    private final CancellableModelBuilder builder;
     private final Action<SourceObjectMapping> mapper;
 
-    public ModelBuilderBackedModelProducer(ProtocolToModelAdapter adapter, VersionDetails versionDetails, ModelMapping modelMapping, ModelBuilder builder) {
+    public CancellableModelBuilderBackedModelProducer(ProtocolToModelAdapter adapter, VersionDetails versionDetails, ModelMapping modelMapping, CancellableModelBuilder builder) {
         super(adapter, versionDetails, modelMapping);
         this.builder = builder;
         mapper = new TaskPropertyHandlerFactory().forVersion(versionDetails);
@@ -47,7 +44,7 @@ public class ModelBuilderBackedModelProducer extends AbstractModelProducer {
         final ModelIdentifier modelIdentifier = modelMapping.getModelIdentifierFromModelType(type);
         BuildResult<?> result;
         try {
-            result = builder.getModel(modelIdentifier, operationParameters);
+            result = builder.getModel(modelIdentifier, (InternalCancellationToken) cancellationToken, operationParameters);
         } catch (InternalUnsupportedModelException e) {
             throw Exceptions.unknownModel(type, e);
         }
