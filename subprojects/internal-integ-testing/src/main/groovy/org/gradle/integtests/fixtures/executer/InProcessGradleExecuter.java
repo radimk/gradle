@@ -17,7 +17,7 @@
 package org.gradle.integtests.fixtures.executer;
 
 import org.gradle.BuildResult;
-import org.gradle.initialization.GradleLauncher;
+import org.gradle.initialization.*;
 import org.gradle.StartParameter;
 import org.gradle.api.GradleException;
 import org.gradle.api.Task;
@@ -31,9 +31,6 @@ import org.gradle.api.tasks.TaskState;
 import org.gradle.cli.CommandLineParser;
 import org.gradle.cli.ParsedCommandLine;
 import org.gradle.execution.MultipleBuildFailures;
-import org.gradle.initialization.BuildLayoutParameters;
-import org.gradle.initialization.DefaultCommandLineConverter;
-import org.gradle.initialization.DefaultGradleLauncherFactory;
 import org.gradle.internal.Factory;
 import org.gradle.internal.exceptions.LocationAwareException;
 import org.gradle.internal.jvm.Jvm;
@@ -175,7 +172,7 @@ class InProcessGradleExecuter extends AbstractGradleExecuter {
         DefaultGradleLauncherFactory factory = GLOBAL_SERVICES.get(DefaultGradleLauncherFactory.class);
         factory.addListener(listener);
         try {
-            GradleLauncher gradleLauncher = factory.newInstance(parameter);
+            GradleLauncher gradleLauncher = factory.newInstance(parameter, new FixedBuildCancellationToken());
             try {
                 gradleLauncher.addStandardOutputListener(outputListener);
                 gradleLauncher.addStandardErrorListener(errorListener);
