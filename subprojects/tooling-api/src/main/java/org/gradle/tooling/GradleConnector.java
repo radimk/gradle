@@ -19,6 +19,7 @@ import org.gradle.tooling.internal.consumer.ConnectorServices;
 
 import java.io.File;
 import java.net.URI;
+import java.util.concurrent.TimeUnit;
 
 /**
  * <p>A {@code GradleConnector} is the main entry point to the Gradle tooling API. You use this API as follows:</p>
@@ -131,6 +132,16 @@ public abstract class GradleConnector {
      * @since 1.0-milestone-3
      */
     public abstract GradleConnector useGradleUserHomeDir(File gradleUserHomeDir);
+
+    /**
+     * Specifies the timeout that controls for how long the daemon will wait in idle state before it quits.
+     *
+     * @param timeoutValue The time for which the daemon will wait before it exits.
+     * @param timeoutUnits The time unit for timeout value.
+     * @return this
+     * @since 2.3
+     */
+    public abstract GradleConnector daemonMaxIdleTime(int timeoutValue, TimeUnit timeoutUnits);
 
     /**
      * Creates a connection to the project in the specified project directory. You should call {@link org.gradle.tooling.ProjectConnection#close()} when you are finished with the connection.
